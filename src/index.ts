@@ -3,6 +3,7 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { resolveSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import { DiscordThreadAutoNamer } from "./auto-name.js";
 import { parseSettings, thresholdForAccount, tokenEnvForAccount } from "./config.js";
+import { createMemoryKeyedStore } from "./memory-store.js";
 
 const PLUGIN_ID = "discord-thread-auto-name";
 const SNOWFLAKE = /^\d{17,20}$/;
@@ -60,21 +61,42 @@ export default definePluginEntry({
       if (stateUnavailable) {
         return null;
       }
+      if (namer) {
+        return namer;
+      }
       try {
-        namer ??= new DiscordThreadAutoNamer({
-          settings,
-          claims: api.runtime.state.openKeyedStore({
+        let claims;
+        let rates;
+        try {
+          claims = api.runtime.state.openKeyedStore<{ claimedAt: number }>({
             namespace: "thread-claims-v1",
             maxEntries: 10_000,
             overflowPolicy: "reject-new",
             defaultTtlMs: 48 * 60 * 60_000,
-          }),
-          rates: api.runtime.state.openKeyedStore({
+          });
+          rates = api.runtime.state.openKeyedStore<number[]>({
             namespace: "parent-rename-rates-v1",
             maxEntries: 10_000,
             overflowPolicy: "reject-new",
             defaultTtlMs: 10 * 60_000,
-          }),
+          });
+        } catch {
+          api.logger?.warn?.(
+            "Persistent state unavailable; Discord thread auto-naming uses process memory until the next plugin reload.",
+          );
+          claims = createMemoryKeyedStore<{ claimedAt: number }>({
+            maxEntries: 10_000,
+            defaultTtlMs: 48 * 60 * 60_000,
+          });
+          rates = createMemoryKeyedStore<number[]>({
+            maxEntries: 10_000,
+            defaultTtlMs: 10 * 60_000,
+          });
+        }
+        namer ??= new DiscordThreadAutoNamer({
+          settings,
+          claims,
+          rates,
           tokenForAccount,
           policyVersion,
           complete: async (transcript) => {
