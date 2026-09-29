@@ -1,0 +1,50 @@
+{
+  "name": "@art22s/discord-thread-auto-name",
+  "version": "0.1.0",
+  "description": "AI titles for authorized OpenClaw Discord threads after a message threshold",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/art22s/discord-thread-auto-name"
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "lint": "oxlint src && oxfmt --check src README.md package.json openclaw.plugin.json",
+    "format": "oxfmt src README.md package.json openclaw.plugin.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "openclaw": "2026.9.6",
+    "oxfmt": "0.65.0",
+    "oxlint": "1.80.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.0"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.9.6"
+  },
+  "packageManager": "pnpm@12.3.4",
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.9.6",
+      "minGatewayVersion": "2026.9.6"
+    },
+    "build": {
+      "openclawVersion": "2026.9.6",
+      "pluginSdkVersion": "2026.9.6"
+    }
+  }
+}

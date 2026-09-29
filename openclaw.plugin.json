@@ -1,0 +1,32 @@
+{
+  "id": "discord-thread-auto-name",
+  "name": "Discord Thread Auto Name",
+  "description": "Names authorized Discord threads after a configurable number of messages.",
+  "categories": ["channels"],
+  "activation": {
+    "onCapabilities": ["hook"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "autoName": {
+        "oneOf": [{ "type": "boolean" }, { "type": "integer", "minimum": 0 }]
+      },
+      "tokenEnv": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" },
+      "accounts": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "autoName": {
+              "oneOf": [{ "type": "boolean" }, { "type": "integer", "minimum": 0 }]
+            },
+            "tokenEnv": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" }
+          }
+        }
+      }
+    }
+  }
+}
