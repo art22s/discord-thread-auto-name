@@ -20,8 +20,8 @@ function channelId(value: string | number | undefined): string | null {
 
 export default definePluginEntry({
   id: PLUGIN_ID,
-  name: "Discord Thread Auto Name",
-  description: "Names authorized Discord threads after a message threshold.",
+  name: "AI Discord Thread Titles",
+  description: "Create concise AI titles for Discord threads from conversation history.",
   register(api) {
     const settings = parseSettings(api.pluginConfig);
     if (

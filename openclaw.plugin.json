@@ -1,7 +1,7 @@
 {
   "id": "discord-thread-auto-name",
-  "name": "Discord Thread Auto Name",
-  "description": "Names authorized Discord threads after a configurable number of messages.",
+  "name": "AI Discord Thread Titles",
+  "description": "Create concise AI titles for Discord threads from their OpenClaw conversation history.",
   "categories": ["channels"],
   "activation": {
     "onCapabilities": ["hook"]

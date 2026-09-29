@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Refresh the ClawHub listing and README with a clearer feature overview, setup guide, and conversation-handling details.
+
 ## 0.1.3
 
 - Leave rate-limited threads eligible for a later accepted message instead of permanently claiming them before a rename slot is available.

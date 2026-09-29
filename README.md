@@ -1,37 +1,28 @@
-# Discord Thread Auto Name
+# AI Discord Thread Titles for OpenClaw
 
-An independent OpenClaw companion plugin for the official Discord channel. It gives a Discord thread one concise AI title after a configurable number of **OpenClaw-accepted user and agent messages**.
+When enabled, give Discord threads titles that reflect the conversation. **AI Discord Thread Titles** reads each thread’s OpenClaw session, then creates a short, clear title with an isolated AI call.
 
-The plugin uses OpenClaw's public message hooks. It does not subscribe to raw Discord gateway events. Only messages admitted by the official Discord channel's access policy enter the title transcript. The title call uses a fresh, tool-free isolated agent runtime context.
-
-## Requirements
-
-- OpenClaw 2026.9.6 or newer, with the official Discord channel enabled.
-- A configured model that supports `isolated-agent-runtime` completions.
-- The Discord bot's **Manage Threads** permission in the thread's parent channel.
-- The same bot token used by the official Discord account. A literal `channels.discord.token` or `channels.discord.accounts.<id>.token` is reused when available. If the official account uses a SecretRef, expose that same token through an environment variable for this plugin.
-
-## Install
-
-Install from ClawHub:
+Install it alongside OpenClaw’s official Discord channel plugin. Choose how many messages should trigger a title, and the plugin takes care of the rest.
 
 ```sh
 openclaw plugins install clawhub:@art22s/discord-thread-auto-name
 openclaw plugins enable discord-thread-auto-name
 ```
 
-For local development, build and link the directory:
+## What it does
 
-```sh
-pnpm install
-pnpm build
-openclaw plugins install --link . --force
-openclaw plugins enable discord-thread-auto-name
-```
+- **Titles that use the conversation.** Builds a title from the thread’s user and assistant messages, not just a new-message sample.
+- **Works with older threads.** When an existing thread gets its next accepted message, its prior OpenClaw session history is included. No background scan is needed.
+- **Configurable message threshold.** Set a threshold for each Discord account, or use the default of five messages.
+- **Handles long discussions.** Summarizes large histories in bounded chunks before asking for the final title. Tool calls and tool results stay out of the title prompt.
+- **Fits Discord.** Removes markdown and control-character noise and limits titles to Discord’s 100-character maximum.
+- **Uses your Discord access rules.** Listens to OpenClaw’s accepted message hooks, so messages rejected by the official channel’s access policy do not enter the title flow.
+- **Checks rename permission and pacing.** Requires Manage Threads and limits renames to two per parent channel in ten minutes. If the channel is at capacity, the thread can retry on its next accepted message.
+- **Keeps the title call separate.** Uses a fresh isolated model context and does not log conversation text.
 
 ## Configure
 
-Add this entry to your `openclaw.json` and restart the Gateway:
+Add the plugin entry to `openclaw.json`, then reload or restart the Gateway:
 
 ```json
 {
@@ -42,10 +33,7 @@ Add this entry to your `openclaw.json` and restart the Gateway:
         "config": {
           "autoName": 5,
           "accounts": {
-            "work": {
-              "autoName": 8,
-              "tokenEnv": "WORK_DISCORD_BOT_TOKEN"
-            }
+            "work": { "autoName": 8 }
           }
         }
       }
@@ -54,25 +42,56 @@ Add this entry to your `openclaw.json` and restart the Gateway:
 }
 ```
 
-`autoName` is disabled by default. `false` or `0` disables it, `true` means 5 messages, and a positive integer sets the threshold. `accounts.<id>.autoName` overrides the common value. For the default Discord account, the plugin checks `DISCORD_BOT_TOKEN` when it cannot reuse a literal token from the Discord channel config. Other accounts can set `accounts.<id>.tokenEnv` to the name of an environment variable containing that account's bot token. The bot token must belong to the **same bot** that received the messages through OpenClaw. The plugin never writes tokens or message text to its logs or persistent state.
+`autoName` controls the number of user and assistant messages in a thread session required to generate a title:
 
-The next accepted message in a thread discovers it, including threads created before plugin installation. The plugin reads that thread's OpenClaw session transcript, counts its user and assistant text messages toward the threshold, and includes the new message. It then counts successfully delivered agent replies while running. It ignores failed deliveries and duplicate message IDs. Inactive threads are not scanned; an older thread is considered when its next accepted message arrives. Discord messages absent from the OpenClaw session cannot be recovered by this plugin.
+| Value            | Behavior                       |
+| ---------------- | ------------------------------ |
+| `false` or `0`   | Disabled (default)             |
+| `true`           | Use the default threshold of 5 |
+| Positive integer | Use that message threshold     |
 
-The title model runs with fresh isolated context. For a short conversation, it receives all user and assistant text from the thread session. For a longer conversation, separate isolated calls summarize successive chunks before the final title call. Tool results, tool calls, and other session events are excluded. The plugin processes up to 160,000 characters of conversation text; it skips a larger transcript rather than silently dropping its beginning. It does not log conversation text.
+An account-specific `accounts.<id>.autoName` overrides the common setting. The plugin reads a thread’s existing session history when the next accepted message arrives, then counts successfully delivered agent replies while it is running. It ignores failed deliveries and duplicate message IDs.
 
-Once the threshold is reached, the plugin claims the thread before starting the model call. Claims have no time expiry. The plugin skips a thread if its name changes before the rename. It checks Manage Threads before the model call and again before the Discord API request. It also abandons the rename if the Discord configuration changes during generation.
+## Requirements
 
-The plugin reserves at most two rename attempts per parent channel in any ten-minute window. When the channel is at capacity, the thread remains eligible and can retry on its next accepted message. A Discord `403` or `429` ends that thread's single attempt without a retry. Official trusted installs use OpenClaw's persistent state store. ClawHub community installs cannot access that store, so they use bounded process memory for claims and rate counters. Those counters reset on plugin reload or Gateway restart; an older thread could then be named again. If the memory store fills, naming is skipped while ordinary Discord message delivery continues.
+- OpenClaw 2026.9.6 or newer.
+- OpenClaw’s official Discord channel plugin enabled.
+- A configured model that supports isolated runtime completions.
+- The Discord bot has **Manage Threads** permission in the parent channel.
+- The plugin can reuse the same bot token as the official Discord account. If the token is configured through a SecretRef, provide it to this plugin with an environment variable:
 
-## Development and proof
+```json
+{
+  "plugins": {
+    "entries": {
+      "discord-thread-auto-name": {
+        "config": { "tokenEnv": "DISCORD_BOT_TOKEN" }
+      }
+    }
+  }
+}
+```
+
+For another account, set `accounts.<id>.tokenEnv`. The token must belong to the same bot that receives the messages through OpenClaw. A literal `channels.discord.token` or `channels.discord.accounts.<id>.token` is reused automatically when available.
+
+## Conversation handling
+
+The final title call runs in a fresh isolated context. For long histories, the plugin first makes separate isolated calls to summarize successive chunks. It only sends user and assistant text; tool calls, tool results, and other session events are excluded. Conversation text is never written to plugin logs or claim state.
+
+The plugin can process up to 160,000 characters of session conversation text. Larger histories are skipped instead of silently dropping earlier context. Discord messages that never made it into the OpenClaw session cannot be recovered. Inactive threads are not scanned; an older thread is considered only after its next accepted message.
+
+Each thread gets at most one title attempt after the threshold is reached. The plugin checks Manage Threads before generation and again before renaming, and abandons a rename if the Discord configuration or thread name changes during generation. A Discord `403` or `429` ends that thread’s attempt without retrying.
+
+Official trusted installs use OpenClaw’s persistent state store. ClawHub community installs use bounded process memory for claims and rate counters. Those records reset on plugin reload or Gateway restart, so a thread could be considered again after a restart. If the memory store fills, naming is skipped and regular Discord message delivery continues.
+
+## Local development
 
 ```sh
+pnpm install
 pnpm check
 pnpm lint
 pnpm test
 pnpm build
 ```
 
-The tests use mocked Discord REST and model responses. For a live smoke check, enable the plugin in a test guild, send a message in an older thread with an OpenClaw session, and verify that Discord shows one title based on its conversation. Repeat in a channel blocked by OpenClaw's Discord access policy and verify that no title call or rename occurs. Use a bot without Manage Threads to verify the permission skip.
-
-Before publishing, run `clawhub package validate .` and `clawhub package publish . --family code-plugin --dry-run` against the built package. Publishing requires access to the `art22s` owner on ClawHub.
+Tests use mocked Discord REST and model responses; they do not make network requests. For a live check, use a test guild, send a message in an older thread with an OpenClaw session, and verify that Discord receives one descriptive title.
