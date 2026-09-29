@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Leave rate-limited threads eligible for a later accepted message instead of permanently claiming them before a rename slot is available.
+
 ## 0.1.2
 
 - Read the existing OpenClaw session conversation when a thread receives its next accepted message, so older threads can be named from their history.

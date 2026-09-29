@@ -206,21 +206,28 @@ describe("Discord thread auto-naming", () => {
   it("allows only two rename attempts per parent in ten minutes", async () => {
     const h = harness(1);
     const namer = new DiscordThreadAutoNamer(h.deps);
+    let rateLimitedThreadId = "";
     for (let sequence = 10; sequence < 13; sequence += 1) {
+      const threadId = h.threadId(sequence);
+      if (sequence === 12) {
+        rateLimitedThreadId = threadId;
+      }
       await namer.onInbound({
         accountId: "default",
-        threadId: h.threadId(sequence),
+        threadId,
         content: `Topic ${sequence}`,
       });
     }
     expect(h.renameThread).toHaveBeenCalledTimes(2);
+    expect(h.complete).toHaveBeenCalledTimes(2);
     h.advance(10 * MINUTE + 1);
     await namer.onInbound({
       accountId: "default",
-      threadId: h.threadId(13),
+      threadId: rateLimitedThreadId,
       content: "Later topic",
     });
     expect(h.renameThread).toHaveBeenCalledTimes(3);
+    expect(h.renameThread).toHaveBeenLastCalledWith(rateLimitedThreadId, "Generated title");
   });
 
   it("does not retry a Discord rate-limit rejection", async () => {

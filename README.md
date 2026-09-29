@@ -62,7 +62,7 @@ The title model runs with fresh isolated context. For a short conversation, it r
 
 Once the threshold is reached, the plugin claims the thread before starting the model call. Claims have no time expiry. The plugin skips a thread if its name changes before the rename. It checks Manage Threads before the model call and again before the Discord API request. It also abandons the rename if the Discord configuration changes during generation.
 
-The plugin reserves at most two rename attempts per parent channel in any ten-minute window. A Discord `403` or `429` ends that thread's single attempt without a retry. Official trusted installs use OpenClaw's persistent state store. ClawHub community installs cannot access that store, so they use bounded process memory for claims and rate counters. Those counters reset on plugin reload or Gateway restart; an older thread could then be named again. If the memory store fills, naming is skipped while ordinary Discord message delivery continues.
+The plugin reserves at most two rename attempts per parent channel in any ten-minute window. When the channel is at capacity, the thread remains eligible and can retry on its next accepted message. A Discord `403` or `429` ends that thread's single attempt without a retry. Official trusted installs use OpenClaw's persistent state store. ClawHub community installs cannot access that store, so they use bounded process memory for claims and rate counters. Those counters reset on plugin reload or Gateway restart; an older thread could then be named again. If the memory store fills, naming is skipped while ordinary Discord message delivery continues.
 
 ## Development and proof
 

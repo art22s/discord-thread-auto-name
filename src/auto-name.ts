@@ -29,6 +29,8 @@ type ThreadState = {
   done: boolean;
 };
 
+type NameThreadResult = "complete" | "rate-limited" | "skipped";
+
 export type InboundMessage = {
   accountId: string;
   threadId: string;
@@ -246,15 +248,29 @@ export class DiscordThreadAutoNamer {
       return;
     }
     state.done = true;
+    let claimed = false;
     try {
+      if (!(await this.hasRateCapacity(message.accountId, state.thread.parentId))) {
+        state.done = false;
+        return;
+      }
       if (!(await this.deps.claims.registerIfAbsent(key, { claimedAt: this.now() }))) {
         return;
       }
-      await this.nameThread(message.accountId, state);
+      claimed = true;
+      if ((await this.nameThread(message.accountId, state)) === "rate-limited") {
+        if (this.deps.claims.update) {
+          await this.deps.claims.update(key, () => undefined);
+          claimed = false;
+          state.done = false;
+        }
+      }
     } catch {
       // Fail closed if the bounded claim store is unavailable or full.
     } finally {
-      this.threads.delete(key);
+      if (claimed || state.done) {
+        this.threads.delete(key);
+      }
     }
   }
 
@@ -281,29 +297,29 @@ export class DiscordThreadAutoNamer {
     return (recent ?? []).filter((at) => this.now() - at < RENAME_WINDOW_MS).length < 2;
   }
 
-  private async nameThread(accountId: string, state: ThreadState): Promise<void> {
+  private async nameThread(accountId: string, state: ThreadState): Promise<NameThreadResult> {
     const token = this.deps.tokenForAccount(accountId);
     if (!token || digest(token) !== state.tokenHash || !this.stillAuthorized(state)) {
-      return;
+      return "skipped";
     }
     const rest = this.rest(token);
     if (!(await rest.canManageThreads(state.thread))) {
-      return;
+      return "skipped";
     }
     if (!(await this.hasRateCapacity(accountId, state.thread.parentId))) {
-      return;
+      return "rate-limited";
     }
     const titleInput = await prepareTitleInput(state.transcript, this.deps.summarize);
     if (!titleInput) {
-      return;
+      return "skipped";
     }
     const generated = await this.deps.complete(titleInput);
     const title = generated && sanitizeTitle(generated);
     if (!title || title === state.originalName || !this.stillAuthorized(state)) {
-      return;
+      return "skipped";
     }
     if (!(await rest.canManageThreads(state.thread))) {
-      return;
+      return "skipped";
     }
     const current = await rest.getThread(state.thread.id);
     if (
@@ -313,12 +329,13 @@ export class DiscordThreadAutoNamer {
       current.guildId !== state.thread.guildId ||
       !this.stillAuthorized(state)
     ) {
-      return;
+      return "skipped";
     }
     if (!(await this.reserveRateSlot(accountId, state.thread.parentId))) {
-      return;
+      return "rate-limited";
     }
     await rest.renameThread(state.thread.id, title);
+    return "complete";
   }
 
   private stillAuthorized(state: ThreadState): boolean {
