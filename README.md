@@ -11,7 +11,7 @@ openclaw plugins enable discord-thread-auto-name
 
 ## What it does
 
-- **Titles that use the conversation.** Builds a title from the thread’s user and assistant messages, not just a new-message sample.
+- **Broad titles that use the conversation.** Names the overarching subject using the opening topic and recurring themes. A follow-up about video editing in a discussion of AI playing Among Us and Minecraft stays under a title such as “AI models playing games.”
 - **Works with older threads.** When an existing thread gets its next accepted message, its prior OpenClaw session history is included. No background scan is needed.
 - **Configurable message threshold.** Set a threshold for each Discord account, or use the default of five messages.
 - **Handles long discussions.** Summarizes large histories in bounded chunks before asking for the final title. Tool calls and tool results stay out of the title prompt.
@@ -19,6 +19,7 @@ openclaw plugins enable discord-thread-auto-name
 - **Uses your Discord access rules.** Listens to OpenClaw’s accepted message hooks, so messages rejected by the official channel’s access policy do not enter the title flow.
 - **Checks rename permission and pacing.** Requires Manage Threads and limits renames to two per parent channel in ten minutes. If the channel is at capacity, the thread can retry on its next accepted message.
 - **Keeps the title call separate.** Uses a fresh isolated model context and does not log conversation text.
+- **Choose a naming model.** Use a model reference or configured alias for titles and history summaries, with optional per-account overrides.
 
 ## Configure
 
@@ -51,6 +52,32 @@ Add the plugin entry to `openclaw.json`, then reload or restart the Gateway:
 | Positive integer | Use that message threshold     |
 
 An account-specific `accounts.<id>.autoName` overrides the common setting. The plugin reads a thread’s existing session history when the next accepted message arrives, then counts successfully delivered agent replies while it is running. It ignores failed deliveries and duplicate message IDs.
+
+### Choose the naming model
+
+Set `model` inside the plugin config to use a different model for both title generation and long-history summaries. OpenClaw also requires `llm.allowModelOverride: true` on the plugin entry to permit this override. Accepts an OpenClaw `provider/model` reference or configured model alias. If omitted, OpenClaw uses the agent’s configured model. `accounts.<id>.model` overrides the shared naming model for that Discord account:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "discord-thread-auto-name": {
+        "enabled": true,
+        "llm": { "allowModelOverride": true },
+        "config": {
+          "autoName": 5,
+          "model": "your-summary-model-alias",
+          "accounts": {
+            "work": { "model": "your-work-summary-model-alias" }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Replace the example aliases with models configured in your OpenClaw installation. The selected model uses OpenClaw’s existing provider credentials and model policies. If you set `llm.allowedModels`, it must include every selected model’s full `provider/model` reference, even when `config.model` uses an alias. Naming still runs in a fresh isolated context; it does not change the model or context used for regular Discord replies.
 
 ## Requirements
 

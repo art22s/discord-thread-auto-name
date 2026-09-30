@@ -54,8 +54,8 @@ export type AutoNamerDependencies = {
   rates: KeyedStore<number[]>;
   tokenForAccount: (accountId: string) => string | null;
   policyVersion: () => string;
-  complete: (transcript: string) => Promise<string | null>;
-  summarize?: (chunk: string) => Promise<string | null>;
+  complete: (transcript: string, accountId: string) => Promise<string | null>;
+  summarize?: (chunk: string, accountId: string) => Promise<string | null>;
   readHistory?: (sessionKey: string) => Promise<ConversationMessage[]>;
   rest?: (token: string) => Pick<DiscordRest, "getThread" | "canManageThreads" | "renameThread">;
   now?: () => number;
@@ -309,11 +309,15 @@ export class DiscordThreadAutoNamer {
     if (!(await this.hasRateCapacity(accountId, state.thread.parentId))) {
       return "rate-limited";
     }
-    const titleInput = await prepareTitleInput(state.transcript, this.deps.summarize);
+    const summarize = this.deps.summarize;
+    const titleInput = await prepareTitleInput(
+      state.transcript,
+      summarize ? (chunk) => summarize(chunk, accountId) : undefined,
+    );
     if (!titleInput) {
       return "skipped";
     }
-    const generated = await this.deps.complete(titleInput);
+    const generated = await this.deps.complete(titleInput, accountId);
     const title = generated && sanitizeTitle(generated);
     if (!title || title === state.originalName || !this.stillAuthorized(state)) {
       return "skipped";

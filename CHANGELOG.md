@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6
+
+- Include the compiled runtime in the published artifact. Supersedes the incomplete 0.1.5 package.
+
+## 0.1.5
+
+- Generate broader, lasting thread titles from the opening subject and recurring conversation themes instead of centering the latest question.
+- Add a `model` setting, including `accounts.<id>.model` overrides, for isolated title generation and long-history summaries.
+
 ## 0.1.4
 
 - Refresh the ClawHub listing and README with a clearer feature overview, setup guide, and conversation-handling details.

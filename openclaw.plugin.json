@@ -14,6 +14,13 @@
         "oneOf": [{ "type": "boolean" }, { "type": "integer", "minimum": 0 }]
       },
       "tokenEnv": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" },
+      "model": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "^\\S+(?![\\s\\S])",
+        "description": "Model reference (provider/model) or configured alias for isolated title generation and history summaries. Defaults to the agent's configured model."
+      },
       "accounts": {
         "type": "object",
         "additionalProperties": {
@@ -23,7 +30,14 @@
             "autoName": {
               "oneOf": [{ "type": "boolean" }, { "type": "integer", "minimum": 0 }]
             },
-            "tokenEnv": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" }
+            "tokenEnv": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,127}$" },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^\\S+(?![\\s\\S])",
+              "description": "Override the naming model for this Discord account."
+            }
           }
         }
       }

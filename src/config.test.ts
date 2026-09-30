@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseSettings, thresholdForAccount, tokenEnvForAccount } from "./config.js";
+import {
+  modelForAccount,
+  parseSettings,
+  thresholdForAccount,
+  tokenEnvForAccount,
+} from "./config.js";
 
 describe("auto-name config", () => {
   it("is disabled by default", () => {
@@ -35,4 +40,31 @@ describe("auto-name config", () => {
     expect(() => parseSettings({ autoName: 1.5 })).toThrow();
     expect(() => parseSettings({ tokenEnv: "bad-token" })).toThrow();
   });
+
+  it("inherits the agent model when no naming model is configured", () => {
+    const settings = parseSettings({ autoName: true });
+    expect(modelForAccount(settings, "default")).toBeUndefined();
+    expect(modelForAccount(settings, "work")).toBeUndefined();
+  });
+
+  it("supports a shared naming model and account overrides", () => {
+    const settings = parseSettings({
+      model: "summary-fast",
+      accounts: {
+        work: { model: "provider/work-model" },
+        personal: { autoName: 3 },
+      },
+    });
+    expect(modelForAccount(settings, "default")).toBe("summary-fast");
+    expect(modelForAccount(settings, "work")).toBe("provider/work-model");
+    expect(modelForAccount(settings, "personal")).toBe("summary-fast");
+  });
+
+  it.each([null, false, 3, "", " ", "provider/model name", "provider/model\n", "x".repeat(257)])(
+    "rejects invalid naming model references: %s",
+    (model) => {
+      expect(() => parseSettings({ model })).toThrow(/model/);
+      expect(() => parseSettings({ accounts: { work: { model } } })).toThrow(/model/);
+    },
+  );
 });

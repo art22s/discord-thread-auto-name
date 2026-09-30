@@ -1,5 +1,6 @@
 export type AccountSettings = {
   autoName?: number | boolean;
+  model?: string;
   tokenEnv?: string;
 };
 
@@ -36,6 +37,16 @@ function parseTokenEnv(value: unknown): string | undefined {
   throw new Error("tokenEnv must be an uppercase environment variable name");
 }
 
+function parseModel(value: unknown): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "string" && value.length > 0 && value.length <= 256 && !/\s/.test(value)) {
+    return value;
+  }
+  throw new Error("model must be a nonempty model reference or alias without whitespace");
+}
+
 function parseAccount(value: unknown): AccountSettings {
   const input = record(value);
   if (!input) {
@@ -43,6 +54,7 @@ function parseAccount(value: unknown): AccountSettings {
   }
   return {
     autoName: parseAutoName(input.autoName),
+    model: parseModel(input.model),
     tokenEnv: parseTokenEnv(input.tokenEnv),
   };
 }
@@ -59,6 +71,7 @@ export function parseSettings(value: unknown): Settings {
   }
   return {
     autoName: parseAutoName(input.autoName),
+    model: parseModel(input.model),
     tokenEnv: parseTokenEnv(input.tokenEnv),
     accounts,
   };
@@ -74,4 +87,8 @@ export function tokenEnvForAccount(settings: Settings, accountId: string): strin
     settings.accounts[accountId]?.tokenEnv ??
     (accountId === "default" ? (settings.tokenEnv ?? "DISCORD_BOT_TOKEN") : undefined)
   );
+}
+
+export function modelForAccount(settings: Settings, accountId: string): string | undefined {
+  return settings.accounts[accountId]?.model ?? settings.model;
 }
