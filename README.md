@@ -13,7 +13,7 @@ The plugin uses OpenClaw's public message hooks. It does not subscribe to raw Di
 
 ## Install
 
-Once published to ClawHub:
+Install from ClawHub:
 
 ```sh
 openclaw plugins install clawhub:@art22s/discord-thread-auto-name
@@ -58,9 +58,9 @@ Add this entry to your `openclaw.json` and restart the Gateway:
 
 The first eligible accepted message discovers a thread. Only threads created within the past 24 hours qualify; the counter starts when the plugin first observes one. During Gateway downtime or before installation, messages are not backfilled. The plugin counts delivered agent replies only after an accepted inbound message in that thread. It ignores failed deliveries and duplicate message IDs. A title is generated from at most 20 recent message lines and 1,800 characters.
 
-Once the threshold is reached, the plugin claims the thread in its SQLite-backed plugin state before starting the model call. Claims expire after 48 hours; a thread is already ineligible after 24 hours, so it cannot be renamed again after claim expiry. The plugin skips a thread if its name changes before the rename. It checks Manage Threads before the model call and again before the Discord API request. It also abandons the rename if the Discord configuration changes during generation.
+Once the threshold is reached, the plugin claims the thread before starting the model call. Claims expire after 48 hours; a thread is already ineligible after 24 hours, so it cannot be renamed again after claim expiry during one Gateway run. The plugin skips a thread if its name changes before the rename. It checks Manage Threads before the model call and again before the Discord API request. It also abandons the rename if the Discord configuration changes during generation.
 
-The plugin reserves at most two rename attempts per parent channel in any ten-minute window, with the counters persisted across Gateway restarts. A Discord `403` or `429` ends that thread's single attempt without a retry. If the bounded state store is unavailable or full, naming is skipped while ordinary Discord message delivery continues.
+The plugin reserves at most two rename attempts per parent channel in any ten-minute window. A Discord `403` or `429` ends that thread's single attempt without a retry. Official trusted installs use OpenClaw's persistent state store. ClawHub community installs cannot access that store, so they use bounded process memory for claims and rate counters. Those counters reset on plugin reload or Gateway restart; a still-eligible thread could then be counted and renamed again. If the memory store fills, naming is skipped while ordinary Discord message delivery continues.
 
 ## Development and proof
 

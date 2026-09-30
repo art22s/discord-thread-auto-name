@@ -282,7 +282,7 @@ export class DiscordThreadAutoNamer {
   private async reserveRateSlot(accountId: string, parentId: string): Promise<boolean> {
     const now = this.now();
     let allowed = false;
-    await this.deps.rates.update?.(
+    const stored = await this.deps.rates.update?.(
       this.key(accountId, parentId),
       (current) => {
         const recent = (current ?? []).filter((at) => now - at < RENAME_WINDOW_MS);
@@ -294,7 +294,7 @@ export class DiscordThreadAutoNamer {
       },
       { ttlMs: RENAME_WINDOW_MS },
     );
-    return allowed;
+    return stored === true && allowed;
   }
 
   private async hasRateCapacity(accountId: string, parentId: string): Promise<boolean> {

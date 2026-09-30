@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Fall back to bounded process memory when OpenClaw denies persistent state access to community plugins, so auto-naming can run.
+- Warn once when persistence is unavailable and keep rate limits fail closed if state is full.
+
 ## 0.1.0
 
 - Add opt-in Discord thread title generation after a configurable message threshold.
