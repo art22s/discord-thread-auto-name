@@ -1,6 +1,6 @@
 {
   "name": "@art22s/discord-thread-auto-name",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Create concise AI titles for Discord threads from their OpenClaw conversation history",
   "license": "MIT",
   "repository": {
