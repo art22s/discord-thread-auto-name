@@ -9,18 +9,21 @@
   },
   "files": [
     "dist",
+    "docs",
     "openclaw.plugin.json",
     "README.md",
     "CHANGELOG.md",
+    "CONTRIBUTING.md",
     "LICENSE"
   ],
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit -p tsconfig.json",
-    "lint": "oxlint src && oxfmt --check src README.md package.json openclaw.plugin.json",
-    "format": "oxfmt src README.md package.json openclaw.plugin.json",
-    "test": "vitest run"
+    "lint": "oxlint src test scripts vitest.config.ts && oxfmt --check src test scripts docs README.md CONTRIBUTING.md CHANGELOG.md package.json openclaw.plugin.json tsconfig.json tsconfig.build.json vitest.config.ts",
+    "format": "oxfmt src test scripts docs README.md CONTRIBUTING.md CHANGELOG.md package.json openclaw.plugin.json tsconfig.json tsconfig.build.json vitest.config.ts",
+    "test": "vitest run",
+    "check:package": "node scripts/check-package.mjs"
   },
   "devDependencies": {
     "@types/node": "26.4.0",

@@ -3,7 +3,7 @@ import {
   MAX_SESSION_TEXT_CHARS,
   readSessionConversation,
   SessionHistoryUnavailableError,
-} from "./session-history.js";
+} from "../src/session-history.js";
 
 type Reader = NonNullable<Parameters<typeof readSessionConversation>[2]>;
 const entry = (role: string, content: unknown) => ({ role, message: { content } });

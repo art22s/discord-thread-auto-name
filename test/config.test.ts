@@ -4,7 +4,7 @@ import {
   parseSettings,
   thresholdForAccount,
   tokenEnvForAccount,
-} from "./config.js";
+} from "../src/config.js";
 
 describe("auto-name config", () => {
   it("is disabled by default", () => {

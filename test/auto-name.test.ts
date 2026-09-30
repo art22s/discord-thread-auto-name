@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { DiscordThreadAutoNamer, sanitizeTitle, type AutoNamerDependencies } from "./auto-name.js";
-import { parseSettings } from "./config.js";
-import type { DiscordThread } from "./discord.js";
+import {
+  DiscordThreadAutoNamer,
+  sanitizeTitle,
+  type AutoNamerDependencies,
+} from "../src/auto-name.js";
+import { parseSettings } from "../src/config.js";
+import type { DiscordThread } from "../src/discord.js";
 
 const EPOCH = 1_420_070_400_000;
 const MINUTE = 60_000;

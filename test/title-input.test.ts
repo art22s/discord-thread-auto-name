@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { MAX_SESSION_TEXT_CHARS } from "./session-history.js";
-import { prepareTitleInput } from "./title-input.js";
+import { MAX_SESSION_TEXT_CHARS } from "../src/session-history.js";
+import { prepareTitleInput } from "../src/title-input.js";
 
 describe("title input", () => {
   it("passes a short transcript through without summarizing", async () => {

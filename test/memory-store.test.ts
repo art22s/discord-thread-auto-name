@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { createMemoryKeyedStore } from "./memory-store.js";
+import { createMemoryKeyedStore } from "../src/memory-store.js";
 
 afterEach(() => vi.useRealTimers());
 

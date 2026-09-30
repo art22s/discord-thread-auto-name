@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { canManageThreadsFromPermissions, DiscordRest, snowflakeCreatedAtMs } from "./discord.js";
+import {
+  canManageThreadsFromPermissions,
+  DiscordRest,
+  snowflakeCreatedAtMs,
+} from "../src/discord.js";
 
 const MANAGE_THREADS = (1n << 34n).toString();
 const GUILD = {
