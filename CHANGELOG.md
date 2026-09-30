@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Organize tests under `test/` and add configuration, behavior, troubleshooting, development, and contribution guides.
+- Include the documentation in package artifacts and update build, test, and formatting configuration for the new layout.
+- Add a package check to verify compiled runtime and documentation are included without development files.
+
 ## 0.1.6
 
 - Include the compiled runtime in the published artifact. Supersedes the incomplete 0.1.5 package.

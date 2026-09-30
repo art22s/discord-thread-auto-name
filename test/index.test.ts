@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import plugin from "./index.js";
-import { readSessionConversation } from "./session-history.js";
+import plugin from "../src/index.js";
+import { readSessionConversation } from "../src/session-history.js";
 
-vi.mock("./session-history.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./session-history.js")>()),
+vi.mock("../src/session-history.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/session-history.js")>()),
   readSessionConversation: vi.fn(),
 }));
 
