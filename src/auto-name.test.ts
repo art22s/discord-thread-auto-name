@@ -120,7 +120,10 @@ describe("Discord thread auto-naming", () => {
       content: "Let's plan it",
       success: true,
     });
-    expect(h.complete).toHaveBeenCalledWith("User: Discuss rollout\nAgent: Let's plan it");
+    expect(h.complete).toHaveBeenCalledWith(
+      "User: Discuss rollout\nAgent: Let's plan it",
+      "default",
+    );
     expect(h.renameThread).toHaveBeenCalledExactlyOnceWith(id, "Generated title");
 
     const restarted = new DiscordThreadAutoNamer(h.deps);
@@ -292,6 +295,7 @@ describe("Discord thread auto-naming", () => {
     expect(h.deps.readHistory).toHaveBeenCalledWith("agent:main:discord:thread:old");
     expect(h.complete).toHaveBeenCalledWith(
       "User: Witcher 3 graphics\nAgent: Discussed RTX requirements\nUser: What about 4K?\nAgent: Need more VRAM\nUser: What about DLSS?",
+      "default",
     );
     expect(h.renameThread).toHaveBeenCalledExactlyOnceWith(old, "Generated title");
   });
