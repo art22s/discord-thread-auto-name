@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.4
+
+- Refresh the ClawHub listing and README with a clearer feature overview, setup guide, and conversation-handling details.
+
+## 0.1.3
+
+- Leave rate-limited threads eligible for a later accepted message instead of permanently claiming them before a rename slot is available.
+
+## 0.1.2
+
+- Read the existing OpenClaw session conversation when a thread receives its next accepted message, so older threads can be named from their history.
+- Summarize long conversations in bounded isolated calls while excluding tool output from title input.
+- Keep one-time thread claims without a time expiry.
+
 ## 0.1.1
 
 - Fall back to bounded process memory when OpenClaw denies persistent state access to community plugins, so auto-naming can run.

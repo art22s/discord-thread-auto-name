@@ -1,15 +1,12 @@
 import { createHash } from "node:crypto";
 import { thresholdForAccount, type Settings } from "./config.js";
 import { DiscordRest, type DiscordThread } from "./discord.js";
+import type { ConversationMessage } from "./session-history.js";
+import { prepareTitleInput } from "./title-input.js";
 
-const MAX_THREAD_AGE_MS = 24 * 60 * 60_000;
-const CLAIM_TTL_MS = 48 * 60 * 60_000;
 const RENAME_WINDOW_MS = 10 * 60_000;
 const MAX_TRACKED_THREADS = 10_000;
-const MAX_RECENT_MESSAGES = 20;
 const MAX_SEEN_IDS = 1_000;
-const MAX_MESSAGE_CHARS = 350;
-const MAX_TRANSCRIPT_CHARS = 1_800;
 
 type KeyedStore<T> = {
   lookup(key: string): Promise<T | undefined>;
@@ -32,9 +29,12 @@ type ThreadState = {
   done: boolean;
 };
 
+type NameThreadResult = "complete" | "rate-limited" | "skipped";
+
 export type InboundMessage = {
   accountId: string;
   threadId: string;
+  sessionKey?: string;
   messageId?: string;
   content: string;
   hasMedia?: boolean;
@@ -55,6 +55,8 @@ export type AutoNamerDependencies = {
   tokenForAccount: (accountId: string) => string | null;
   policyVersion: () => string;
   complete: (transcript: string) => Promise<string | null>;
+  summarize?: (chunk: string) => Promise<string | null>;
+  readHistory?: (sessionKey: string) => Promise<ConversationMessage[]>;
   rest?: (token: string) => Pick<DiscordRest, "getThread" | "canManageThreads" | "renameThread">;
   now?: () => number;
 };
@@ -85,22 +87,7 @@ export function sanitizeTitle(raw: string): string | null {
 
 function transcriptLine(role: "User" | "Agent", content: string): string {
   const text = content.replace(/\s+/g, " ").trim() || "[attachment]";
-  return `${role}: ${truncateUtf16(text, MAX_MESSAGE_CHARS)}`;
-}
-
-function recentTranscript(lines: string[]): string {
-  const selected: string[] = [];
-  let remaining = MAX_TRANSCRIPT_CHARS;
-  for (let index = lines.length - 1; index >= 0 && remaining > 0; index -= 1) {
-    const line = lines[index];
-    if (!line) {
-      continue;
-    }
-    const part = truncateUtf16(line, remaining);
-    selected.unshift(part);
-    remaining -= part.length + 1;
-  }
-  return selected.join("\n");
+  return `${role}: ${text}`;
 }
 
 export class DiscordThreadAutoNamer {
@@ -124,11 +111,6 @@ export class DiscordThreadAutoNamer {
 
   private prune(): void {
     const now = this.now();
-    for (const [key, state] of this.threads) {
-      if (now - state.thread.createdAtMs >= MAX_THREAD_AGE_MS) {
-        this.threads.delete(key);
-      }
-    }
     for (const [key, expiresAt] of this.ignored) {
       if (expiresAt <= now) {
         this.ignored.delete(key);
@@ -142,7 +124,11 @@ export class DiscordThreadAutoNamer {
     }
   }
 
-  private async load(accountId: string, threadId: string): Promise<ThreadState | null> {
+  private async load(
+    accountId: string,
+    threadId: string,
+    sessionKey?: string,
+  ): Promise<ThreadState | null> {
     const key = this.key(accountId, threadId);
     this.prune();
     const existing = this.threads.get(key);
@@ -156,7 +142,7 @@ export class DiscordThreadAutoNamer {
     if (pending) {
       return await pending;
     }
-    const load = this.loadFresh(accountId, threadId);
+    const load = this.loadFresh(accountId, threadId, sessionKey);
     this.loading.set(key, load);
     try {
       return await load;
@@ -165,7 +151,11 @@ export class DiscordThreadAutoNamer {
     }
   }
 
-  private async loadFresh(accountId: string, threadId: string): Promise<ThreadState | null> {
+  private async loadFresh(
+    accountId: string,
+    threadId: string,
+    sessionKey?: string,
+  ): Promise<ThreadState | null> {
     const key = this.key(accountId, threadId);
     try {
       if (await this.deps.claims.lookup(key)) {
@@ -177,22 +167,23 @@ export class DiscordThreadAutoNamer {
       }
       const policyVersion = this.deps.policyVersion();
       const thread = await this.rest(token).getThread(threadId);
-      const ageMs = thread ? this.now() - thread.createdAtMs : Number.POSITIVE_INFINITY;
-      if (!thread || ageMs < 0 || ageMs >= MAX_THREAD_AGE_MS) {
+      if (!thread || this.now() < thread.createdAtMs) {
         this.ignored.set(key, this.now() + 10 * 60_000);
         return null;
       }
       if (this.deps.policyVersion() !== policyVersion) {
         return null;
       }
+      const history =
+        sessionKey && this.deps.readHistory ? await this.deps.readHistory(sessionKey) : [];
       const state: ThreadState = {
         thread,
         originalName: thread.name,
         policyVersion,
         tokenHash: digest(token),
-        count: 0,
+        count: history.length,
         seen: new Set(),
-        transcript: [],
+        transcript: history.map((message) => transcriptLine(message.role, message.content)),
         done: false,
       };
       this.threads.set(key, state);
@@ -211,7 +202,7 @@ export class DiscordThreadAutoNamer {
     ) {
       return;
     }
-    const state = await this.load(message.accountId, message.threadId);
+    const state = await this.load(message.accountId, message.threadId, message.sessionKey);
     if (state) {
       await this.record(message, state, "User");
     }
@@ -237,8 +228,7 @@ export class DiscordThreadAutoNamer {
     if (
       state.done ||
       this.threads.get(key) !== state ||
-      this.deps.policyVersion() !== state.policyVersion ||
-      this.now() - state.thread.createdAtMs >= MAX_THREAD_AGE_MS
+      this.deps.policyVersion() !== state.policyVersion
     ) {
       this.threads.delete(key);
       return;
@@ -254,28 +244,33 @@ export class DiscordThreadAutoNamer {
     }
     state.count += 1;
     state.transcript.push(transcriptLine(role, message.content));
-    if (state.transcript.length > MAX_RECENT_MESSAGES) {
-      state.transcript.shift();
-    }
     if (state.count < thresholdForAccount(this.deps.settings, message.accountId)) {
       return;
     }
     state.done = true;
+    let claimed = false;
     try {
-      if (
-        !(await this.deps.claims.registerIfAbsent(
-          key,
-          { claimedAt: this.now() },
-          { ttlMs: CLAIM_TTL_MS },
-        ))
-      ) {
+      if (!(await this.hasRateCapacity(message.accountId, state.thread.parentId))) {
+        state.done = false;
         return;
       }
-      await this.nameThread(message.accountId, state);
+      if (!(await this.deps.claims.registerIfAbsent(key, { claimedAt: this.now() }))) {
+        return;
+      }
+      claimed = true;
+      if ((await this.nameThread(message.accountId, state)) === "rate-limited") {
+        if (this.deps.claims.update) {
+          await this.deps.claims.update(key, () => undefined);
+          claimed = false;
+          state.done = false;
+        }
+      }
     } catch {
       // Fail closed if the bounded claim store is unavailable or full.
     } finally {
-      this.threads.delete(key);
+      if (claimed || state.done) {
+        this.threads.delete(key);
+      }
     }
   }
 
@@ -302,25 +297,29 @@ export class DiscordThreadAutoNamer {
     return (recent ?? []).filter((at) => this.now() - at < RENAME_WINDOW_MS).length < 2;
   }
 
-  private async nameThread(accountId: string, state: ThreadState): Promise<void> {
+  private async nameThread(accountId: string, state: ThreadState): Promise<NameThreadResult> {
     const token = this.deps.tokenForAccount(accountId);
     if (!token || digest(token) !== state.tokenHash || !this.stillAuthorized(state)) {
-      return;
+      return "skipped";
     }
     const rest = this.rest(token);
     if (!(await rest.canManageThreads(state.thread))) {
-      return;
+      return "skipped";
     }
     if (!(await this.hasRateCapacity(accountId, state.thread.parentId))) {
-      return;
+      return "rate-limited";
     }
-    const generated = await this.deps.complete(recentTranscript(state.transcript));
+    const titleInput = await prepareTitleInput(state.transcript, this.deps.summarize);
+    if (!titleInput) {
+      return "skipped";
+    }
+    const generated = await this.deps.complete(titleInput);
     const title = generated && sanitizeTitle(generated);
     if (!title || title === state.originalName || !this.stillAuthorized(state)) {
-      return;
+      return "skipped";
     }
     if (!(await rest.canManageThreads(state.thread))) {
-      return;
+      return "skipped";
     }
     const current = await rest.getThread(state.thread.id);
     if (
@@ -330,18 +329,16 @@ export class DiscordThreadAutoNamer {
       current.guildId !== state.thread.guildId ||
       !this.stillAuthorized(state)
     ) {
-      return;
+      return "skipped";
     }
     if (!(await this.reserveRateSlot(accountId, state.thread.parentId))) {
-      return;
+      return "rate-limited";
     }
     await rest.renameThread(state.thread.id, title);
+    return "complete";
   }
 
   private stillAuthorized(state: ThreadState): boolean {
-    return (
-      this.deps.policyVersion() === state.policyVersion &&
-      this.now() - state.thread.createdAtMs < MAX_THREAD_AGE_MS
-    );
+    return this.deps.policyVersion() === state.policyVersion;
   }
 }

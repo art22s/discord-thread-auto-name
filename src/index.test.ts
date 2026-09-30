@@ -81,6 +81,7 @@ describe("plugin hook wiring", () => {
         runtime: {
           config: { current: () => config },
           state: { openKeyedStore },
+          agent: { session: { getSessionEntry: () => undefined } },
           llm: { complete: model },
         },
         on: (name: string, handler: (event: never, ctx: never) => Promise<void> | void) => {

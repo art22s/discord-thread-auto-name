@@ -206,21 +206,28 @@ describe("Discord thread auto-naming", () => {
   it("allows only two rename attempts per parent in ten minutes", async () => {
     const h = harness(1);
     const namer = new DiscordThreadAutoNamer(h.deps);
+    let rateLimitedThreadId = "";
     for (let sequence = 10; sequence < 13; sequence += 1) {
+      const threadId = h.threadId(sequence);
+      if (sequence === 12) {
+        rateLimitedThreadId = threadId;
+      }
       await namer.onInbound({
         accountId: "default",
-        threadId: h.threadId(sequence),
+        threadId,
         content: `Topic ${sequence}`,
       });
     }
     expect(h.renameThread).toHaveBeenCalledTimes(2);
+    expect(h.complete).toHaveBeenCalledTimes(2);
     h.advance(10 * MINUTE + 1);
     await namer.onInbound({
       accountId: "default",
-      threadId: h.threadId(13),
+      threadId: rateLimitedThreadId,
       content: "Later topic",
     });
     expect(h.renameThread).toHaveBeenCalledTimes(3);
+    expect(h.renameThread).toHaveBeenLastCalledWith(rateLimitedThreadId, "Generated title");
   });
 
   it("does not retry a Discord rate-limit rejection", async () => {
@@ -267,14 +274,25 @@ describe("Discord thread auto-naming", () => {
     expect(h.renameThread).not.toHaveBeenCalled();
   });
 
-  it("rejects threads older than the claim lifetime eligibility window", async () => {
-    const h = harness(1);
+  it("uses an older thread's session history on its next accepted message", async () => {
+    const h = harness(5);
     const old = snowflake(Date.UTC(2026, 8, 27, 0), 1);
+    h.deps.readHistory = vi.fn<NonNullable<AutoNamerDependencies["readHistory"]>>(async () => [
+      { role: "User", content: "Witcher 3 graphics" },
+      { role: "Agent", content: "Discussed RTX requirements" },
+      { role: "User", content: "What about 4K?" },
+      { role: "Agent", content: "Need more VRAM" },
+    ]);
     await new DiscordThreadAutoNamer(h.deps).onInbound({
       accountId: "default",
       threadId: old,
-      content: "Old discussion",
+      sessionKey: "agent:main:discord:thread:old",
+      content: "What about DLSS?",
     });
-    expect(h.complete).not.toHaveBeenCalled();
+    expect(h.deps.readHistory).toHaveBeenCalledWith("agent:main:discord:thread:old");
+    expect(h.complete).toHaveBeenCalledWith(
+      "User: Witcher 3 graphics\nAgent: Discussed RTX requirements\nUser: What about 4K?\nAgent: Need more VRAM\nUser: What about DLSS?",
+    );
+    expect(h.renameThread).toHaveBeenCalledExactlyOnceWith(old, "Generated title");
   });
 });

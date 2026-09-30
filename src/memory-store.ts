@@ -1,6 +1,6 @@
 type Entry<T> = { value: T; expiresAt: number };
 
-export function createMemoryKeyedStore<T>(options: { maxEntries: number; defaultTtlMs: number }) {
+export function createMemoryKeyedStore<T>(options: { maxEntries: number; defaultTtlMs?: number }) {
   const entries = new Map<string, Entry<T>>();
 
   const lookup = (key: string): T | undefined => {
@@ -19,7 +19,8 @@ export function createMemoryKeyedStore<T>(options: { maxEntries: number; default
     return entries.size < options.maxEntries;
   };
 
-  const expiresAt = (ttlMs?: number): number => Date.now() + (ttlMs ?? options.defaultTtlMs);
+  const expiresAt = (ttlMs?: number): number =>
+    Date.now() + (ttlMs ?? options.defaultTtlMs ?? Infinity);
 
   return {
     async lookup(key: string): Promise<T | undefined> {

@@ -1,7 +1,7 @@
 {
   "name": "@art22s/discord-thread-auto-name",
-  "version": "0.1.1",
-  "description": "AI titles for authorized OpenClaw Discord threads after a message threshold",
+  "version": "0.1.4",
+  "description": "Create concise AI titles for Discord threads from their OpenClaw conversation history",
   "license": "MIT",
   "repository": {
     "type": "git",
